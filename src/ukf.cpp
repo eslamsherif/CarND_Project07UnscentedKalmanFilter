@@ -51,26 +51,9 @@ static void calculateMeasCovarMatrix(MatrixXd & __R_Lidar, MatrixXd & __R_Radar)
     __R_Radar(2U, 2U) = ( RADAR_STD_RHODOT * RADAR_STD_RHODOT );
 }
 
-static double correctAnglePhi(double Phi)
-{
-    /* TODO: Evaluate difference between lecture and my implementation */
-    while (Phi >  M_PI) Phi -= 2.0 * M_PI;
-    while (Phi < -M_PI) Phi += 2.0 * M_PI;
-
-    return Phi;
-    // while ( Phi > M_PI || Phi < -M_PI )
-    // {
-        // if ( Phi > M_PI )
-        // {
-            // Phi -= M_PI;
-        // }
-        // else
-        // {
-            // Phi += M_PI;
-        // }
-    // }
-
-    // return Phi;
+static void correctAnglePhi(VectorXd vector, int index) {
+  while (vector(index)> M_PI) vector(index)-=2.*M_PI;
+  while (vector(index)<-M_PI) vector(index)+=2.*M_PI;
 }
 
 static void generate_Sigma_Points(const VectorXd & __x, const MatrixXd & __P, MatrixXd & __out)
@@ -168,20 +151,35 @@ static void Radar_Measurement_Prediction(const MatrixXd & __PredSigPts, const Ve
         double Psi  = __PredSigPts(3, i);
         /* double Psid = __PredSigPts(4, i); */
 
-        __Zsig.col(i)(0) = sqrt( (Px * Px) + (Py * Py) );
-        __Zsig.col(i)(1) = correctAnglePhi( atan2(Py, Px) );
-        __Zsig.col(i)(2) = ((Px * cos(Psi) * V) + (Py * sin(Psi) * V)) / (__Zsig.col(i)(0));
+        double temp = sqrt( (Px * Px) + (Py * Py) );
+
+        __Zsig(0, i) = temp;
+        __Zsig(1, i) = atan2(Py, Px);
+        __Zsig(2, i) = ((Px * cos(Psi) * V) + (Py * sin(Psi) * V)) / temp;
     }
 
     for(unsigned int i = 0U; i < SIG_PTS_CNT; i++)
     {
         __z_pred = __z_pred + (__weights(i) * __Zsig.col(i));
     }
+    
+    
+    /* FIXME remove below debug code */
+    PrintMatrix("Zsig ", __Zsig);
+    PrintMatrix("Zpred ", __z_pred);
 
     for(unsigned int i = 0U; i < SIG_PTS_CNT; i++)
     {
         VectorXd temp = (__Zsig.col(i) - __z_pred);
-        temp(1)       = correctAnglePhi(temp(1));
+        cout << temp(1) << endl;
+        PrintVector("Zdiff1 ", temp);
+        correctAnglePhi(temp, 1);
+        cout << temp(1) << endl;
+        
+        
+        /* FIXME remove below debug code */
+        PrintVector("Zdiff ", temp);
+        PrintVector("Zdiff_temp ", temp.transpose());
 
         __S = __S + (__weights(i) * temp * temp.transpose());
     }
@@ -206,7 +204,7 @@ static void Radar_Update_State(const MatrixXd & __PredSigPts, const VectorXd & _
     MatrixXd K = Tc * __S.inverse();
 
     VectorXd z_diff = __mp.raw_measurements_ - __z_pred;
-    z_diff(1) = correctAnglePhi(z_diff(1));
+    correctAnglePhi(z_diff, 1);
 
     __state = __state + K * z_diff;
     __covar = __covar - K * __S * K.transpose();
@@ -260,6 +258,12 @@ UKF::~UKF() {}
  */
 void UKF::ProcessMeasurement(MeasurementPackage meas_package)
 {
+
+    #if ( defined (DEBUG_PREDICTION) || defined (DEBUG_MEASUERMENT) )
+    PrintVector("Raw meas values ", meas_package.raw_measurements_);
+    cout << "Sens Type " << meas_package.sensor_type_ << endl;
+    #endif
+
     if(false == is_initialized_) /* Process first measurements */
     {
         if(meas_package.sensor_type_ == MeasurementPackage::LASER)
@@ -318,12 +322,13 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package)
         double dt = (meas_package.timestamp_ - time_us_) / 1000000.0; /* dt - expressed in seconds */
         time_us_ = meas_package.timestamp_;
 
-        Prediction(dt);
-
         #ifdef DEBUG_PREDICTION
         cout << "------------------------------DTP1001------------------------------" << endl;
         cout << "delta time = " << dt << endl;
+        cout << "Prediction Start." << endl;
         #endif
+
+        Prediction(dt);
 
         /*****************************************************************************
          *  Update
@@ -403,7 +408,7 @@ void UKF::Prediction(double delta_t)
     for(unsigned int i = 0; i < SIG_PTS_CNT; i++)
     {
         VectorXd temp = Xsig_pred_.col(i) - x_;
-        temp(3) = correctAnglePhi( temp(3) );
+        correctAnglePhi( temp, 3 );
 
         /* FIXME: Remove debug code below */
         cout << "weights_(i) " << weights_(i) << endl;
@@ -457,11 +462,24 @@ void UKF::UpdateRadar(MeasurementPackage meas_package)
 
     Radar_Measurement_Prediction(Xsig_pred_, weights_, R_radar_, S, Zsig, z_pred);
 
+    #ifdef DEBUG_MEASUERMENT
+    cout << "------------------------------DTP3001------------------------------" << endl;
+    PrintMatrix("MEAS_S: ", S);
+    PrintMatrix("MEAS_Zsig: ", Zsig);
+    PrintMatrix("MEAS_z_pred: ", z_pred);
+    #endif
+
     /*****************************************************************************
      *  Update State
      ****************************************************************************/
     
     Radar_Update_State(Xsig_pred_, weights_, S, Zsig, z_pred, meas_package, x_, P_);
+
+    #ifdef DEBUG_PREDICTION
+    cout << "------------------------------DTP3002------------------------------" << endl;
+    PrintVector("MEAS_Predicted State: ", x_);
+    PrintMatrix("MEAS_Predicted Covariance Matrix: ", P_);
+    #endif
 }
 
 /* Getter and Setter function */
