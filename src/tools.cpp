@@ -23,15 +23,16 @@ VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
          ( est_size  != ground_truth.size() ) 
        )
    {
-      return rmse;
+        cout << "ERROR:(003) RMSE Preconditions violated." << endl;
+        return rmse;
    }
 
    /* Accumulate squared residuals */
-    for(unsigned int idx=0; idx < est_size; ++idx)
+    for(unsigned int i=0; i < est_size; ++i)
     {
-      VectorXd temp = estimations[idx] - ground_truth[idx];
-      temp = temp.array() * temp.array();
-      rmse += temp;
+        VectorXd temp = estimations[i] - ground_truth[i];
+        temp = temp.array() * temp.array();
+        rmse += temp;
    }
 
    /* Calculate the mean */
