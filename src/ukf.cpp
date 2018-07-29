@@ -75,16 +75,6 @@ static void generate_Sigma_Points(const VectorXd & __x, const MatrixXd & __P, Ma
     MatrixXd L = P_aug.llt().matrixL();
     double factor = sqrt(LAMDA + AUG_DCNT);
 
-    
-    /* FIXME: delete below debug code!! */
-    PrintVector("Augmented State ", x_aug);
-    PrintMatrix("Augmented Covar ", P_aug);
-    PrintMatrix("Augmented Covar Sqrt ", L);
-    cout << "factor " << factor << endl;
-    cout << "LAMDA " << LAMDA << endl;
-    cout << "AUG_DCNT " << AUG_DCNT << endl;
-
-
     __out.col(0)  = x_aug;
     for (unsigned char i = 0; i< AUG_DCNT; i++)
     {
@@ -162,20 +152,11 @@ static void radar_Measurement_Prediction(const MatrixXd & __PredSigPts, const Ve
     {
         __z_pred = __z_pred + (__weights(i) * __Zsig.col(i));
     }
-    
-    
-    /* FIXME remove below debug code */
-    PrintMatrix("Zsig ", __Zsig);
-    PrintMatrix("Zpred ", __z_pred);
 
     for(unsigned int i = 0U; i < SIG_PTS_CNT; i++)
     {
         VectorXd temp = (__Zsig.col(i) - __z_pred);
         correctAnglePhi(temp, 1);
-        
-        /* FIXME remove below debug code */
-        PrintVector("Zdiff ", temp);
-        PrintVector("Zdiff_temp ", temp.transpose());
 
         __S = __S + (__weights(i) * temp * temp.transpose());
     }
@@ -223,19 +204,10 @@ static void lidar_Measurement_Prediction(const MatrixXd & __PredSigPts, const Ve
     {
         __z_pred = __z_pred + (__weights(i) * __Zsig.col(i));
     }
-    
-    
-    /* FIXME remove below debug code */
-    PrintMatrix("Zsig ", __Zsig);
-    PrintMatrix("Zpred ", __z_pred);
 
     for(unsigned int i = 0U; i < SIG_PTS_CNT; i++)
     {
         VectorXd temp = (__Zsig.col(i) - __z_pred);
-        
-        /* FIXME remove below debug code */
-        PrintVector("Zdiff ", temp);
-        PrintVector("Zdiff_temp ", temp.transpose());
 
         __S = __S + (__weights(i) * temp * temp.transpose());
     }
@@ -463,14 +435,7 @@ void UKF::Prediction(double delta_t)
     for(unsigned int i = 0; i < SIG_PTS_CNT; i++)
     {
         VectorXd temp = Xsig_pred_.col(i) - x_;
-        correctAnglePhi( temp, 3 );
-
-        /* FIXME: Remove debug code below */
-        cout << "weights_(i) " << weights_(i) << endl;
-        PrintVector("SigmaPts", Xsig_pred_.col(i));
-        PrintVector("State", x_);
-        PrintMatrix("temp: ", temp);
-        PrintMatrix("tempt: ", temp.transpose());
+        correctAnglePhi(temp, 3);
 
         P_ = P_ + ( weights_(i) * temp * temp.transpose() );
     }
