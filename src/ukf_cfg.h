@@ -2,13 +2,17 @@
 #define UKF_CFG_H
 
 /* Debug Switches */
-#define DEBUG_GENERAL
+// #define DEBUG_GENERAL
 
 #ifdef DEBUG_GENERAL
 // #define DEBUG_INITPARAM
 // #define DEBUG_FIRSTMEAS
 #define DEBUG_PREDICTION
+#define DEBUG_MEASUERMENT
 #endif
+
+// #define ENABLE_LIDAR_NIS
+#define ENABLE_RADAR_NIS
 
 /* Process Model Dimensions */
 #define NOISE_DCNT (2U) /* Noise dimensions count                 */
@@ -37,8 +41,8 @@
 #endif
 
 /* Process Model Noise Parameters */
-#define PROCESS_LONG_ACC (30.0) /* Process noise standard deviation longitudinal acceleration in m/s^2 */
-#define PROCESS_YAW_ACC  (30.0) /* Process noise standard deviation yaw acceleration in rad/s^2 */
+#define PRCSS_LONG_ACC (30.0) /* Process noise standard deviation longitudinal acceleration in m/s^2 */
+#define PRCSS_YAW_ACC  (30.0) /* Process noise standard deviation yaw acceleration in rad/s^2        */
 
 /* Sensor defined standard deviation. */
 /* DO NOT MODIFY BELOW THIS LINE TILL CLOSE TAG */
