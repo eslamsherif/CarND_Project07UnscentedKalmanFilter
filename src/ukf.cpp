@@ -139,7 +139,7 @@ static void predict_Sigma_Points(const MatrixXd & __SigPts, const double __dt, M
     }
 }
 
-static void Radar_Measurement_Prediction(const MatrixXd & __PredSigPts, const VectorXd & __weights, 
+static void radar_Measurement_Prediction(const MatrixXd & __PredSigPts, const VectorXd & __weights, 
                                          const MatrixXd & __R_radar_  , MatrixXd & __S            , 
                                          MatrixXd & __Zsig            , VectorXd & __z_pred)
 {
@@ -171,11 +171,7 @@ static void Radar_Measurement_Prediction(const MatrixXd & __PredSigPts, const Ve
     for(unsigned int i = 0U; i < SIG_PTS_CNT; i++)
     {
         VectorXd temp = (__Zsig.col(i) - __z_pred);
-        cout << temp(1) << endl;
-        PrintVector("Zdiff1 ", temp);
         correctAnglePhi(temp, 1);
-        cout << temp(1) << endl;
-        
         
         /* FIXME remove below debug code */
         PrintVector("Zdiff ", temp);
@@ -187,7 +183,7 @@ static void Radar_Measurement_Prediction(const MatrixXd & __PredSigPts, const Ve
     __S += __R_radar_;
 }
 
-static void Radar_Update_State(const MatrixXd & __PredSigPts, const VectorXd & __weights, 
+static void radar_Update_State(const MatrixXd & __PredSigPts, const VectorXd & __weights, 
                                const MatrixXd & __S         , const MatrixXd & __Zsig   , 
                                const VectorXd & __z_pred    , const MeasurementPackage & __mp, 
                                VectorXd & __state           , MatrixXd & __covar)
@@ -205,6 +201,65 @@ static void Radar_Update_State(const MatrixXd & __PredSigPts, const VectorXd & _
 
     VectorXd z_diff = __mp.raw_measurements_ - __z_pred;
     correctAnglePhi(z_diff, 1);
+
+    __state = __state + K * z_diff;
+    __covar = __covar - K * __S * K.transpose();
+}
+
+static void lidar_Measurement_Prediction(const MatrixXd & __PredSigPts, const VectorXd & __weights, 
+                                         const MatrixXd & __R_lidar_  , MatrixXd & __S            , 
+                                         MatrixXd & __Zsig            , VectorXd & __z_pred)
+{
+    for(unsigned int i = 0U; i < SIG_PTS_CNT; i++)
+    {
+        double Px   = __PredSigPts(0, i);
+        double Py   = __PredSigPts(1, i);
+
+        __Zsig(0, i) = Px;
+        __Zsig(1, i) = Py;
+    }
+
+    for(unsigned int i = 0U; i < SIG_PTS_CNT; i++)
+    {
+        __z_pred = __z_pred + (__weights(i) * __Zsig.col(i));
+    }
+    
+    
+    /* FIXME remove below debug code */
+    PrintMatrix("Zsig ", __Zsig);
+    PrintMatrix("Zpred ", __z_pred);
+
+    for(unsigned int i = 0U; i < SIG_PTS_CNT; i++)
+    {
+        VectorXd temp = (__Zsig.col(i) - __z_pred);
+        
+        /* FIXME remove below debug code */
+        PrintVector("Zdiff ", temp);
+        PrintVector("Zdiff_temp ", temp.transpose());
+
+        __S = __S + (__weights(i) * temp * temp.transpose());
+    }
+
+    __S += __R_lidar_;
+}
+
+static void lidar_Update_State(const MatrixXd & __PredSigPts, const VectorXd & __weights, 
+                               const MatrixXd & __S         , const MatrixXd & __Zsig   , 
+                               const VectorXd & __z_pred    , const MeasurementPackage & __mp, 
+                               VectorXd & __state           , MatrixXd & __covar)
+{
+    MatrixXd Tc = MatrixXd(STATE_DCNT, LID_DCNT);
+
+    Tc.fill(0.0);
+
+    for (unsigned int i = 0; i < SIG_PTS_CNT; i++)
+    {
+        Tc = Tc + __weights(i) * (__PredSigPts.col(i) - __state) * (__Zsig.col(i) - __z_pred).transpose();
+    }
+
+    MatrixXd K = Tc * __S.inverse();
+
+    VectorXd z_diff = __mp.raw_measurements_ - __z_pred;
 
     __state = __state + K * z_diff;
     __covar = __covar - K * __S * K.transpose();
@@ -433,14 +488,37 @@ void UKF::Prediction(double delta_t)
  */
 void UKF::UpdateLidar(MeasurementPackage meas_package)
 {
-    /**
-    TODO:
+    /*****************************************************************************
+     *  Predict Measurement
+     ****************************************************************************/
+    MatrixXd S      = MatrixXd(LID_DCNT, LID_DCNT);
+    MatrixXd Zsig   = MatrixXd(LID_DCNT, SIG_PTS_CNT);
+    VectorXd z_pred = VectorXd(LID_DCNT);
 
-    Complete this function! Use lidar data to update the belief about the object's
-    position. Modify the state vector, x_, and covariance, P_.
+    S.fill(0.0);
+    Zsig.fill(0.0);
+    z_pred.fill(0.0);
 
-    You'll also need to calculate the lidar NIS.
-    */
+    lidar_Measurement_Prediction(Xsig_pred_, weights_, R_lidar_, S, Zsig, z_pred);
+
+    #ifdef DEBUG_MEASUERMENT
+    cout << "------------------------------DTP4001------------------------------" << endl;
+    PrintMatrix("MEAS_S: ", S);
+    PrintMatrix("MEAS_Zsig: ", Zsig);
+    PrintMatrix("MEAS_z_pred: ", z_pred);
+    #endif
+
+    /*****************************************************************************
+     *  Update State
+     ****************************************************************************/
+
+    lidar_Update_State(Xsig_pred_, weights_, S, Zsig, z_pred, meas_package, x_, P_);
+
+    #ifdef DEBUG_PREDICTION
+    cout << "------------------------------DTP4002------------------------------" << endl;
+    PrintVector("MEAS_Predicted State: ", x_);
+    PrintMatrix("MEAS_Predicted Covariance Matrix: ", P_);
+    #endif
 }
 
 /**
@@ -460,7 +538,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package)
     Zsig.fill(0.0);
     z_pred.fill(0.0);
 
-    Radar_Measurement_Prediction(Xsig_pred_, weights_, R_radar_, S, Zsig, z_pred);
+    radar_Measurement_Prediction(Xsig_pred_, weights_, R_radar_, S, Zsig, z_pred);
 
     #ifdef DEBUG_MEASUERMENT
     cout << "------------------------------DTP3001------------------------------" << endl;
@@ -472,8 +550,8 @@ void UKF::UpdateRadar(MeasurementPackage meas_package)
     /*****************************************************************************
      *  Update State
      ****************************************************************************/
-    
-    Radar_Update_State(Xsig_pred_, weights_, S, Zsig, z_pred, meas_package, x_, P_);
+
+    radar_Update_State(Xsig_pred_, weights_, S, Zsig, z_pred, meas_package, x_, P_);
 
     #ifdef DEBUG_PREDICTION
     cout << "------------------------------DTP3002------------------------------" << endl;
@@ -494,7 +572,7 @@ VectorXd UKF::get_StateEstimate(void)
 
     ret(0U) = Px;
     ret(1U) = Py;
-    ret(2U) = V * cos(Psi); /* Vx */
-    ret(3U) = V * sin(Psi); /* Vy */
+    ret(2U) = V;
+    ret(3U) = Psi;
     return ret;
 }
