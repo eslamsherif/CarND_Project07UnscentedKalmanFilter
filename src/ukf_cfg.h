@@ -11,7 +11,7 @@
 #define DEBUG_MEASUERMENT
 #endif
 
-// #define ENABLE_LIDAR_NIS
+#define ENABLE_LIDAR_NIS
 #define ENABLE_RADAR_NIS
 
 /* Process Model Dimensions */
@@ -41,8 +41,8 @@
 #endif
 
 /* Process Model Noise Parameters */
-#define PRCSS_LONG_ACC (30.0) /* Process noise standard deviation longitudinal acceleration in m/s^2 */
-#define PRCSS_YAW_ACC  (30.0) /* Process noise standard deviation yaw acceleration in rad/s^2        */
+#define PRCSS_LONG_ACC (0.3) /* Process noise standard deviation longitudinal acceleration in m/s^2 */
+#define PRCSS_YAW_ACC  (0.4)  /* Process noise standard deviation yaw acceleration in rad/s^2        */
 
 /* Sensor defined standard deviation. */
 /* DO NOT MODIFY BELOW THIS LINE TILL CLOSE TAG */

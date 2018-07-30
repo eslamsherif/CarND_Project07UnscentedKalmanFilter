@@ -492,7 +492,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package)
     #ifdef ENABLE_LIDAR_NIS
     VectorXd z_diff = meas_package.raw_measurements_ - z_pred;
     double lidar_NIS = z_diff.transpose() * S.inverse() * z_diff;
-    cout << "lidar_NIS: " << lidar_NIS << endl;
+    cout << "Lidar_NIS: " << lidar_NIS << endl;
     #endif
 }
 
